@@ -1,39 +1,65 @@
 import { BigNumber, Contract } from 'ethers'
 import {
+  ADDRESS_ZERO,
+  ChainId,
   TEN_POW_18,
   SUSHI_FACTORY,
+  SUSHI_FACTORY_POLYGON,
   UNI_V2_PAIR_ABI,
   V2_FACTORY_ABI,
 } from 'utils/constants/constants'
-
-import { WETH } from 'utils/constants/tokens'
 import { getProvider } from 'utils/provider'
+import { getWETH } from 'utils/weth'
+import { LiquidityBalance } from './types'
 
-type V2Balances = {
-  tokenBalance: BigNumber
-  wethBalance: BigNumber
+function getFactoryAddress(chainId: ChainId) {
+  switch (chainId) {
+    case ChainId.ethereum:
+      return SUSHI_FACTORY
+    case ChainId.polygon:
+      return SUSHI_FACTORY_POLYGON
+  }
 }
 
 export async function getSushiswapLiquidity(
-  tokenAddress: string
-): Promise<V2Balances> {
-  const provider = getProvider()
-  const factoryInstance = await new Contract(
-    SUSHI_FACTORY,
-    V2_FACTORY_ABI,
-    provider
-  )
-  const pairAddress = await factoryInstance.getPair(tokenAddress, WETH)
-  const pairContract = await new Contract(
-    pairAddress,
-    UNI_V2_PAIR_ABI,
-    provider
-  )
-  const [tokenBalance, wethBalance] = await pairContract.getReserves()
+  tokenAddress: string,
+  chainId: ChainId
+): Promise<LiquidityBalance> {
+  let response = {
+    pairAddress: '',
+    tokenBalance: BigNumber.from(0),
+    wethBalance: BigNumber.from(0),
+  }
+  try {
+    const provider = getProvider(chainId)
+    const WETH = getWETH(chainId)
+    const factoryAddress = getFactoryAddress(chainId)
+    const factoryInstance = await new Contract(
+      factoryAddress,
+      V2_FACTORY_ABI,
+      provider
+    )
+    const pairAddress = await factoryInstance.getPair(tokenAddress, WETH)
+    if (pairAddress === ADDRESS_ZERO) {
+      throw new Error('Error getting address for pair on SushiSwap')
+    }
+    const pairContract = await new Contract(
+      pairAddress,
+      UNI_V2_PAIR_ABI,
+      provider
+    )
 
-  const response: V2Balances = {
-    tokenBalance: tokenBalance.div(TEN_POW_18),
-    wethBalance: wethBalance.div(TEN_POW_18),
+    const [tokenBalance, wethBalance] = await pairContract.getReserves()
+
+    // For some reason for polygon the tokens returned seem to be switched up
+    response = {
+      pairAddress,
+      tokenBalance: tokenBalance.div(TEN_POW_18),
+      wethBalance: wethBalance.div(TEN_POW_18),
+    }
+  } catch (error) {
+    console.log('Error getting liquidity from SushiSwap')
+    console.log(error)
   }
   return response
 }

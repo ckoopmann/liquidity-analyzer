@@ -1,6 +1,17 @@
 import { constants, BigNumber } from 'ethers'
+import { ExchangeName } from 'utils/poolData'
 
 const { AddressZero, MaxUint256, One, Two, Zero } = constants
+
+export enum ChainId {
+  ethereum = 1,
+  polygon = 137,
+}
+
+export const COIN_GECKO_CHAIN_KEY = {
+  [ChainId.ethereum]: 'ethereum',
+  [ChainId.polygon]: 'polygon-pos',
+}
 
 export const ADDRESS_ZERO = AddressZero
 export const ETH_ADDRESS = '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE'
@@ -30,18 +41,81 @@ export const DPI_SINGLE_INDEX_MODULE =
 export const TEN_POW_18 = BigNumber.from(10).pow(18)
 export const TEN_POW_16 = BigNumber.from(10).pow(16)
 
-export const ALCHEMY_API =
-  'https://eth-mainnet.alchemyapi.io/v2/5j2PCDrDSbB5C6n8pnka21H3NSoUje4j' // + process.env.ALCHEMY_TOKEN;
+// Choose how many decimals to keep when converting float price to BigNumber
+export const PRICE_DECIMALS = 100
+
+export const ALCHEMY_API = {
+  [ChainId.ethereum]: `https://eth-mainnet.alchemyapi.io/v2/${process.env.REACT_APP_ALCHEMY_API_ETHEREUM}`,
+  [ChainId.polygon]: `https://polygon-mainnet.g.alchemy.com/v2/${process.env.REACT_APP_ALCHEMY_API_POLYGON}`,
+}
+
+export const BLOCK_EXPLORER = {
+  [ChainId.ethereum]: 'https://etherscan.io/address/',
+  [ChainId.polygon]: 'https://polygonscan.com/address/',
+}
 
 export const CG_ETH_PRICE_URL = `https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd`
-export const getCoinGeckoApi = (tokenAddress: string) => {
-  return `https://api.coingecko.com/api/v3/simple/token_price/ethereum?contract_addresses=${tokenAddress}&vs_currencies=usd`
+export const getCoinGeckoApi = (
+  tokenAddress: string,
+  networkKey: string = COIN_GECKO_CHAIN_KEY[1]
+) => {
+  return `https://api.coingecko.com/api/v3/simple/token_price/${networkKey}?contract_addresses=${tokenAddress}&vs_currencies=usd`
 }
 
 export const UNI_V2_FACTORY = '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f'
 export const SUSHI_FACTORY = '0xC0AEe478e3658e2610c5F7A4A2E1777cE9e4f2Ac'
+export const SUSHI_FACTORY_POLYGON =
+  '0xc35DADB65012eC5796536bD9864eD8773aBc74C4'
 export const KYBER_FACTORY = '0x833e4083B7ae46CeA85695c4f7ed25CDAd8886dE'
+export const KYBER_FACTORY_POLYGON =
+  '0x5F1fe642060B5B9658C15721Ea22E982643c095c'
 export const BALANCER_OCR = '0x7226DaaF09B3972320Db05f5aB81FF38417Dd687'
+export const BALANCER_V2_POLYGON = '0xBA12222222228d8Ba445958a75a0704d566BF2C8'
+
+export const ALL_INDEX_SET_HTML_REFS: any = {
+  DPI: 'defipulse-index',
+  MVI: 'metaverse-index',
+  BED: 'bankless-bed-index',
+  DATA: 'data-economy-index',
+}
+
+export const INDEX_TOKENS = {
+  DPI: 'DPI',
+  MVI: 'MVI',
+  BED: 'BED',
+  DATA: 'DATA',
+}
+
+export const INDEX_TOKENS_FOR_SELECT = [
+  { name: 'DPI' },
+  { name: 'MVI' },
+  { name: 'BED' },
+  { name: 'DATA' },
+]
+
+export const EXCHANGES: Array<ExchangeName> = [
+  'UniswapV3FeeLow',
+  'UniswapV3FeeMedium',
+  'UniswapV3FeeHigh',
+  'UniswapV2',
+  'Sushiswap',
+  'Kyber',
+  'Balancer',
+  'ZeroEx',
+]
+
+export const EXCHANGETOSTRING =  {
+  UniswapV3FeeLow: 'UniswapV3 (0.05% fee tier)',
+  UniswapV3FeeMedium: 'UniswapV3 (0.30% fee tier)',
+  UniswapV3FeeHigh: 'UniswapV3 (1% fee tier)',
+  UniswapV2: 'UniswapV2',
+  Sushiswap: 'Sushiswap',
+  Kyber: 'Kyber',
+  Balancer:'Balancer',
+  ZeroEx: 'ZeroEx'
+}
+// Exchanges used for rebalances
+export const REBALANCE_EXCHANGES: Array<ExchangeName> = EXCHANGES.filter(ex => ex !== 'ZeroEx')
 
 export const V2_FACTORY_ABI = [
   {
@@ -1440,7 +1514,3 @@ export const BALANCER_OCR_ABI = [
     type: 'function',
   },
 ]
-
-// Choose how many decimals to keep when converting float price to BigNumber
-export const PRICE_DECIMALS = 100
-

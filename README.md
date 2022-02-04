@@ -1,3 +1,13 @@
+# Liquidity Analyzer
+
+## Setup
+
+Make a copy of the default env file
+
+```bash
+cp .env.default .env
+```
+
 # Getting Started with Create React App
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).

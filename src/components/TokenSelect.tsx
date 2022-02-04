@@ -2,22 +2,48 @@ import Box from '@mui/material/Box'
 import TextField from '@mui/material/TextField'
 import Autocomplete from '@mui/material/Autocomplete'
 import { createFilterOptions } from '@mui/material/Autocomplete'
-import axios from 'axios'
-import { useEffect, useState, useContext } from 'react'
-import { TokenContext } from 'contexts/Token'
+import { MainnetTokens, MaticTokens } from '@indexcoop/tokenlists'
+import { useEffect, useState, useContext, ChangeEvent } from 'react'
+import { MarketDataContext } from 'contexts/MarketData'
+import { ChainId } from '../utils/constants/constants'
 
-export default function CountrySelect() {
+function getTokenDataForSymbol(tokenSymbol: string, chainId: ChainId) {
+  const tokens = chainId === ChainId.ethereum ? MainnetTokens : MaticTokens
+  const filteredTokens = tokens.filter(
+    (tokenData) => tokenData.symbol === tokenSymbol
+  )
+  return filteredTokens.length > 0 ? filteredTokens[0] : null
+}
+
+export default function TokenSelect(props: {
+  chainId: ChainId
+  desiredAmount: string
+  onDesiredAmountChange: (arg0: ChangeEvent<HTMLInputElement>) => void
+}) {
   const [tokens, setTokens] = useState<TokenData[]>([])
-  const { setSelectedToken } = useContext(TokenContext)
+  const { selectedToken, setSelectedToken } = useContext(MarketDataContext)
 
   useEffect(() => {
-    axios
-      .get('https://tokens.coingecko.com/uniswap/all.json')
-      .then((response) => {
-        console.log('Token Response', response)
-        setTokens(response.data.tokens)
-      })
-  }, [])
+    const tokens =
+      props.chainId === ChainId.ethereum ? MainnetTokens : MaticTokens
+    const tokenData = getTokenDataForSymbol(selectedToken.symbol, props.chainId)
+    setTokens(tokens)
+
+    if (tokenData === null) {
+      return
+    }
+
+    if (tokenData.address === selectedToken.address) {
+      return
+    }
+
+    setSelectedToken(tokenData)
+  }, [
+    props.chainId,
+    selectedToken.symbol,
+    selectedToken.address,
+    setSelectedToken,
+  ])
 
   return (
     <Autocomplete
@@ -25,11 +51,12 @@ export default function CountrySelect() {
       sx={{ width: 300 }}
       options={tokens}
       autoHighlight
-      filterOptions={createFilterOptions({ 
-          stringify(option){
-              return option.symbol + option.name
-          },
-          limit: 100 })}
+      filterOptions={createFilterOptions({
+        stringify(option) {
+          return option.symbol + option.name
+        },
+        limit: 100,
+      })}
       onChange={(_, value) => {
         if (value != null) setSelectedToken(value)
       }}
@@ -51,6 +78,7 @@ export default function CountrySelect() {
           label='Choose a token'
           inputProps={{
             ...params.inputProps,
+            inputMode: 'numeric',
             autoComplete: 'new-password', // disable autocomplete and autofill
           }}
         />

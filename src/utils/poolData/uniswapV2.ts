@@ -1,22 +1,19 @@
-import { BigNumber, Contract } from 'ethers'
+import { Contract } from 'ethers'
 import {
+  ChainId,
   TEN_POW_18,
   UNI_V2_FACTORY,
   UNI_V2_PAIR_ABI,
   V2_FACTORY_ABI,
 } from 'utils/constants/constants'
-
 import { WETH } from 'utils/constants/tokens'
 import { getProvider } from 'utils/provider'
-
-type V2Balances = {
-  tokenBalance: BigNumber
-  wethBalance: BigNumber
-}
+import { LiquidityBalance } from './types'
 
 export async function getUniswapV2Liquidity(
-  tokenAddress: string
-): Promise<V2Balances> {
+  tokenAddress: string,
+  chainId: ChainId
+): Promise<LiquidityBalance> {
   const provider = getProvider()
   const factoryInstance = await new Contract(
     UNI_V2_FACTORY,
@@ -31,9 +28,9 @@ export async function getUniswapV2Liquidity(
   )
   const [tokenBalance, wethBalance] = await pairContract.getReserves()
 
-  const response: V2Balances = {
+  return {
+    pairAddress,
     tokenBalance: tokenBalance.div(TEN_POW_18),
     wethBalance: wethBalance.div(TEN_POW_18),
   }
-  return response
 }

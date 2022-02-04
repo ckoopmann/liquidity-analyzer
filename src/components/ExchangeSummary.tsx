@@ -1,12 +1,13 @@
 import { BigNumber } from 'ethers'
-import usePrices from 'hooks/usePrices'
-import numeral from 'numeral'
+import useMarketData from 'hooks/useMarketDataComponents'
 import { useEffect, useState, useContext } from 'react'
 import styled from 'styled-components'
 import { getMaxTrade, getLiquidity, ExchangeName } from 'utils/poolData'
-import { PRICE_DECIMALS, TEN_POW_18 } from '../utils/constants/constants'
+import { ChainId, PRICE_DECIMALS, EXCHANGETOSTRING } from '../utils/constants/constants'
 import CircularProgress from '@mui/material/CircularProgress'
-import { TokenContext } from 'contexts/Token'
+import { MarketDataContext } from 'contexts/MarketData'
+import { formatDisplay, formatUSD } from 'utils/formatters'
+import { getBlockExplorerUrl } from '../utils/block-explorer'
 
 const HALF_PERCENT = 0.5
 const ONE_PERCENT = 1
@@ -14,55 +15,84 @@ const ONE_PERCENT = 1
 const ExchangeSummary = (props: {
   tokenPrice: BigNumber
   exchange: ExchangeName
+  desiredAmount: string
+  chainId: ChainId
 }) => {
+  const [pairAddress, setPairAddress] = useState('')
   const [tokenBalance, setTokenBalance] = useState<BigNumber>(BigNumber.from(0))
   const [wethBalance, setWethBalance] = useState<BigNumber>(BigNumber.from(0))
   const [maxTrade, setMaxTrade] = useState<BigNumber>(BigNumber.from(0))
   const [maxHalfTrade, setHalfMaxTrade] = useState<BigNumber>(BigNumber.from(0))
-  const { ethereumPrice } = usePrices()
+  const { ethereumPrice } = useMarketData()
   const [liquidityLoading, setLiquidityLoading] = useState(false)
+  const [liquidityError, setLiquidityError] = useState(false)
   const [halfTradeLoading, setHalfTradeLoading] = useState(false)
+  const [halfTradeError, setHalfTradeError] = useState(false)
   const [tradeLoading, setTradeLoading] = useState(false)
-  const { selectedToken } = useContext(TokenContext)
+  const [tradeError, setTradeError] = useState(false)
+  const { selectedToken } = useContext(MarketDataContext)
   const tenPowDecimals = BigNumber.from(10).pow(selectedToken.decimals)
+  const explorerUrl =
+    pairAddress.length > 0
+      ? getBlockExplorerUrl(pairAddress, props.chainId)
+      : '#'
+  const explorerTarget = explorerUrl === '#' ? '_self' : '_blank'
 
   useEffect(() => {
     setLiquidityLoading(true)
-    getLiquidity(selectedToken.address, props.exchange)
+    getLiquidity(selectedToken.address, props.exchange, props.chainId)
       .then((response) => {
+        setPairAddress(response.pairAddress)
         setTokenBalance(response.tokenBalance)
         setWethBalance(response.wethBalance)
+        setLiquidityError(false)
+      })
+      .catch(() => {
+        setLiquidityError(true)
       })
       .finally(() => {
         setLiquidityLoading(false)
       })
-  }, [props.exchange, selectedToken.address])
+  }, [props.chainId, props.exchange, selectedToken.address])
 
   useEffect(() => {
     setHalfTradeLoading(true)
-    getMaxTrade(selectedToken.address, HALF_PERCENT, props.exchange)
+    getMaxTrade(
+      selectedToken.address,
+      HALF_PERCENT,
+      props.exchange,
+      props.chainId
+    )
       .then((response) => {
         setHalfMaxTrade(response.size)
+        setHalfTradeError(false)
+      })
+      .catch(() => {
+        setHalfTradeError(true)
       })
       .finally(() => setHalfTradeLoading(false))
-  }, [props.exchange, selectedToken.address])
+  }, [props.chainId, props.exchange, selectedToken.address])
 
   useEffect(() => {
     setTradeLoading(true)
-    getMaxTrade(selectedToken.address, ONE_PERCENT, props.exchange)
+    getMaxTrade(
+      selectedToken.address,
+      ONE_PERCENT,
+      props.exchange,
+      props.chainId
+    )
       .then((response) => {
         setMaxTrade(response.size)
+        setTradeError(false)
+      })
+      .catch(() => {
+        setTradeError(true)
       })
       .finally(() => setTradeLoading(false))
-  }, [props.exchange, selectedToken.address])
+  }, [props.chainId, props.exchange, selectedToken.address])
 
   const tokenTotal =
-    props.tokenPrice
-      .mul(tokenBalance)
-      // Adjust balance if token decimals is not 18
-      .mul(TEN_POW_18)
-      .div(tenPowDecimals)
-      .toNumber() / PRICE_DECIMALS
+    props.tokenPrice.mul(tokenBalance).toNumber() / PRICE_DECIMALS
   const wethTotal = ethereumPrice.mul(wethBalance).toNumber() / PRICE_DECIMALS
   const totalLiquidity = tokenTotal + wethTotal
   const maxHalfTradeToken =
@@ -74,38 +104,64 @@ const ExchangeSummary = (props: {
   const maxTradeUSD =
     props.tokenPrice.mul(maxTrade).div(tenPowDecimals).toNumber() /
     PRICE_DECIMALS
-
+  const calculateMaxNumberOfTrades = (maxTrade: number) => {
+    const desiredAmount = parseInt(props.desiredAmount)
+    return desiredAmount > 0 && maxTrade > 0
+      ? Math.ceil(desiredAmount / maxTrade).toString()
+      : '0'
+  }
+  const renderCustomTableData = (
+    isLoading: boolean,
+    value: string,
+    isError?: boolean
+  ) => {
+    return (
+      <TableDataRightAlign>
+        {isLoading ? (
+          <CircularProgress />
+        ) : (
+          <div>{isError ? 'Error' : value}</div>
+        )}
+      </TableDataRightAlign>
+    )
+  }
   return (
     <>
-      <TableData>{props.exchange}</TableData>
-      <TableDataRightAlign>
-        {liquidityLoading ? (
-          <CircularProgress />
-        ) : (
-          <div>{numeral(totalLiquidity).format('$0,0.00')}</div>
-        )}
-      </TableDataRightAlign>
-      <TableDataRightAlign>
-        {halfTradeLoading ? (
-          <CircularProgress />
-        ) : (
-          <div> {numeral(maxHalfTradeToken).format('0,0.00')}</div>
-        )}
-      </TableDataRightAlign>
-      <TableDataRightAlign>
-        {halfTradeLoading ? (
-          <CircularProgress />
-        ) : (
-          <div> {numeral(maxHalfTradeUSD).format('$0,0.00')}</div>
-        )}
-      </TableDataRightAlign>
-      <TableDataRightAlign>
-        {tradeLoading ? (
-          <CircularProgress />
-        ) : (
-          <div> {numeral(maxTradeUSD).format('$0,0.00')}</div>
-        )}
-      </TableDataRightAlign>
+      <TableData>
+        <a
+          href={explorerUrl}
+          style={{ color: 'black' }}
+          target={explorerTarget}
+          rel='noreferrer'
+        >
+          {EXCHANGETOSTRING[props.exchange]}
+        </a>
+      </TableData>
+      {renderCustomTableData(
+        liquidityLoading,
+        formatUSD(totalLiquidity),
+        liquidityError
+      )}
+      {renderCustomTableData(
+        halfTradeLoading,
+        formatDisplay(maxHalfTradeToken),
+        halfTradeError
+      )}
+      {renderCustomTableData(
+        halfTradeLoading,
+        formatUSD(maxHalfTradeUSD),
+        tradeError
+      )}
+      {renderCustomTableData(
+        halfTradeLoading,
+        calculateMaxNumberOfTrades(maxHalfTradeUSD),
+        tradeError
+      )}
+      {renderCustomTableData(tradeLoading, formatUSD(maxTradeUSD))}
+      {renderCustomTableData(
+        tradeLoading,
+        calculateMaxNumberOfTrades(maxTradeUSD)
+      )}
     </>
   )
 }
